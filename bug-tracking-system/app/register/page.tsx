@@ -11,7 +11,9 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Bug, Eye, EyeOff } from "lucide-react"
 import Link from "next/link"
-import { register } from "@/lib/api"
+
+// API URL - using the URL from .env file
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8080"
 
 export default function Register() {
   const router = useRouter()
@@ -20,7 +22,6 @@ export default function Register() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [formData, setFormData] = useState({
-    username: "",
     name: "",
     email: "",
     password: "",
@@ -39,11 +40,52 @@ export default function Register() {
     setError("")
 
     try {
-      const { username, name, email, password, role } = formData
-      await register({ username, name, email, password, role })
-      router.push("/")
+      const { name, email, password, role } = formData
+      
+      console.log('Attempting registration to:', `${API_URL}/signup`)
+      
+      const response = await fetch(`${API_URL}/signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          name,
+          email,
+          password,
+          role,
+        }),
+      })
+
+      console.log('Response status:', response.status)
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()))
+
+      if (!response.ok) {
+        let errorData
+        try {
+          const responseText = await response.text()
+          console.log('Response text:', responseText)
+          errorData = JSON.parse(responseText)
+        } catch (e) {
+          console.log('Failed to parse response as JSON:', e)
+          errorData = { message: `HTTP ${response.status}: ${response.statusText}` }
+        }
+        throw new Error(errorData.message || `HTTP ${response.status}: Registration failed`)
+      }
+
+      const data = await response.json()
+      console.log('Registration successful:', data)
+      
+      // Store token and user data
+      localStorage.setItem('token', data.token)
+      localStorage.setItem('user', JSON.stringify(data.user))
+      
+      // Navigate to dashboard with token
+      router.push(`/?token=${data.token}`)
     } catch (err: any) {
-      setError(err.message || "Registration failed")
+      console.error('Registration error:', err)
+      setError(err.message || "Registration failed - check if API server is running")
     } finally {
       setLoading(false)
     }
@@ -66,19 +108,6 @@ export default function Register() {
                 {error}
               </div>
             )}
-
-            <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
-              <Input
-                id="username"
-                type="text"
-                placeholder="johndoe"
-                value={formData.username}
-                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                required
-                disabled={loading}
-              />
-            </div>
 
             <div className="space-y-2">
               <Label htmlFor="name">Full Name</Label>

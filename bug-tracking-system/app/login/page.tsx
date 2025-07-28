@@ -10,11 +10,17 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Bug, Eye, EyeOff } from "lucide-react"
 import Link from "next/link"
-import { login } from "@/lib/api"
+
+// API URL - using the URL from .env file
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8080"
 
 export default function Login() {
   const router = useRouter()
   const [showPassword, setShowPassword] = useState(false)
+  
+  // Debug: Log the API URL
+  console.log('API_URL from env:', process.env.NEXT_PUBLIC_API_URL)
+  console.log('Final API_URL:', API_URL)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [formData, setFormData] = useState({
@@ -28,10 +34,56 @@ export default function Login() {
     setError("")
 
     try {
-      await login(formData.email, formData.password)
-      router.push("/")
+      console.log('Attempting login to:', `${API_URL}/login`)
+      const requestBody = {
+        email: formData.email,
+        password: formData.password,
+      }
+      console.log('Request body:', JSON.stringify(requestBody, null, 2))
+      
+      const response = await fetch(`${API_URL}/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      })
+
+      console.log('Response status:', response.status)
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()))
+
+      if (!response.ok) {
+        let errorData
+        try {
+          const responseText = await response.text()
+          console.log('Response text:', responseText)
+          errorData = JSON.parse(responseText)
+        } catch (e) {
+          console.log('Failed to parse response as JSON:', e)
+          errorData = { message: `HTTP ${response.status}: ${response.statusText}` }
+        }
+        throw new Error(errorData.message || `HTTP ${response.status}: Login failed`)
+      }
+
+      const data = await response.json()
+      console.log('Login successful:', data)
+      
+      // Store token and user data
+      localStorage.setItem('token', data.token)
+      localStorage.setItem('user', JSON.stringify(data.user))
+      console.log("token", data.token)
+      
+      // Navigate to dashboard with token
+      router.push('/')
     } catch (err: any) {
-      setError(err.message || "Login failed")
+      console.error('Login error:', err)
+      console.error('Error details:', {
+        name: err.name,
+        message: err.message,
+        stack: err.stack
+      })
+      setError(err.message || "Login failed - check if API server is running")
     } finally {
       setLoading(false)
     }
@@ -112,13 +164,10 @@ export default function Login() {
             <h4 className="text-sm font-medium text-gray-900 mb-2">Demo Credentials:</h4>
             <div className="text-xs text-gray-600 space-y-1">
               <p>
-                <strong>Admin:</strong> admin@demo.com / password
+                <strong>Developer:</strong> dev@example.com / 1234
               </p>
               <p>
-                <strong>Developer:</strong> dev@demo.com / password
-              </p>
-              <p>
-                <strong>Reporter:</strong> reporter@demo.com / password
+                <strong>Note:</strong> Use the credentials that work in your backend
               </p>
             </div>
           </div>

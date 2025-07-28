@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Bug, Search, Filter, Plus, ArrowLeft, Download } from "lucide-react"
+import { Bug, Search, Filter, Plus, ArrowLeft, Download, FileText, Activity } from "lucide-react"
 import { fetchBugs, getUser } from "@/lib/api"
 
 const priorityColors = {
@@ -95,7 +95,7 @@ export default function BugsList() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-red-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading bugs...</p>
@@ -104,50 +104,43 @@ export default function BugsList() {
     )
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="sm" onClick={() => router.push("/")}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Dashboard
-              </Button>
-              <div className="flex items-center gap-2">
-                <Bug className="h-6 w-6 text-red-600" />
-                <h1 className="text-xl font-bold text-gray-900">{getRoleBasedTitle()}</h1>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm">
-                <Download className="h-4 w-4 mr-2" />
-                Export
-              </Button>
-              {canCreateBug() && (
-                <Button onClick={() => router.push("/bugs/new")}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Report Bug
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
+  if (!user) {
+    return null
+  }
 
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center gap-4 mb-4">
+            <Button variant="ghost" size="sm" onClick={() => router.push("/")}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Dashboard
+            </Button>
+            <div className="flex items-center gap-2">
+              <div className="p-2 bg-red-100 rounded-full">
+                <Bug className="h-4 w-4 text-red-600" />
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900">{getRoleBasedTitle()}</h1>
+            </div>
+          </div>
+          <p className="text-gray-600">Track and manage bug reports efficiently</p>
+        </div>
+
         {/* Filters */}
-        <Card className="mb-6">
+        <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm mb-6">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Filter className="h-5 w-5" />
-              Filters
-            </CardTitle>
+            <div className="flex items-center gap-2">
+              <div className="p-2 bg-blue-100 rounded-full">
+                <Filter className="h-4 w-4 text-blue-600" />
+              </div>
+              <CardTitle>Filters</CardTitle>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Search</label>
                 <div className="relative">
@@ -156,15 +149,14 @@ export default function BugsList() {
                     placeholder="Search bugs..."
                     value={filters.search}
                     onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                    className="pl-10"
+                    className="pl-10 bg-white/50"
                   />
                 </div>
               </div>
-
               <div className="space-y-2">
                 <label className="text-sm font-medium">Status</label>
                 <Select value={filters.status} onValueChange={(value) => setFilters({ ...filters, status: value })}>
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-white/50">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -176,15 +168,14 @@ export default function BugsList() {
                   </SelectContent>
                 </Select>
               </div>
-
               <div className="space-y-2">
                 <label className="text-sm font-medium">Priority</label>
                 <Select value={filters.priority} onValueChange={(value) => setFilters({ ...filters, priority: value })}>
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-white/50">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Priorities</SelectItem>
+                    <SelectItem value="all">All Priority</SelectItem>
                     <SelectItem value="Low">Low</SelectItem>
                     <SelectItem value="Medium">Medium</SelectItem>
                     <SelectItem value="High">High</SelectItem>
@@ -192,11 +183,10 @@ export default function BugsList() {
                   </SelectContent>
                 </Select>
               </div>
-
               <div className="space-y-2">
                 <label className="text-sm font-medium">Module</label>
                 <Select value={filters.module} onValueChange={(value) => setFilters({ ...filters, module: value })}>
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-white/50">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -204,8 +194,6 @@ export default function BugsList() {
                     <SelectItem value="Authentication">Authentication</SelectItem>
                     <SelectItem value="Dashboard">Dashboard</SelectItem>
                     <SelectItem value="Reports">Reports</SelectItem>
-                    <SelectItem value="Notifications">Notifications</SelectItem>
-                    <SelectItem value="UI/UX">UI/UX</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -213,91 +201,112 @@ export default function BugsList() {
           </CardContent>
         </Card>
 
-        {/* Error Message */}
-        {error && (
-          <Card className="mb-6 border-red-200 bg-red-50">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-2 text-red-700">
-                <Bug className="h-4 w-4" />
-                <span className="font-medium">Error:</span>
-                <span>{error}</span>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Results */}
-        <Card>
+        {/* Bugs Table */}
+        <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
           <CardHeader>
-            <CardTitle>Bug Reports ({bugs.length} found)</CardTitle>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-green-100 rounded-full">
+                  <FileText className="h-4 w-4 text-green-600" />
+                </div>
+                <CardTitle>Bugs ({bugs.length})</CardTitle>
+              </div>
+              <div className="flex items-center gap-2">
+                {canCreateBug() && (
+                  <Button className="bg-red-600 hover:bg-red-700" onClick={() => router.push("/bugs/new")}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Report Bug
+                  </Button>
+                )}
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            {bugs.length === 0 ? (
+            {error && (
+              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-red-600" />
+                  <span className="text-red-800">{error}</span>
+                </div>
+              </div>
+            )}
+
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-gray-200">
+                    <TableHead className="font-semibold">Bug</TableHead>
+                    <TableHead className="font-semibold">Status</TableHead>
+                    <TableHead className="font-semibold">Priority</TableHead>
+                    <TableHead className="font-semibold">Assigned To</TableHead>
+                    <TableHead className="font-semibold">Created</TableHead>
+                    <TableHead className="font-semibold">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {bugs.map((bug) => (
+                    <TableRow key={bug.id} className="border-gray-100 hover:bg-gray-50/50">
+                      <TableCell>
+                        <div className="space-y-1">
+                          <p className="font-medium text-gray-900 cursor-pointer hover:text-red-600" 
+                             onClick={() => router.push(`/bugs/${bug.id}`)}>
+                            {bug.title}
+                          </p>
+                          <p className="text-sm text-gray-500">{bug.module}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={statusColors[bug.status as keyof typeof statusColors]}>
+                          {bug.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={priorityColors[bug.priority as keyof typeof priorityColors]}>
+                          {bug.priority}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          {bug.assignedTo ? (
+                            <span className="text-gray-900">{bug.assignedTo}</span>
+                          ) : (
+                            <span className="text-gray-500">Unassigned</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm text-gray-500">
+                          {formatDate(bug.createdAt)}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => router.push(`/bugs/${bug.id}`)}
+                        >
+                          View
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            {bugs.length === 0 && (
               <div className="text-center py-8">
                 <Bug className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No bugs found</h3>
-                <p className="text-gray-600 mb-4">
-                  {user?.role === "Reporter" 
-                    ? "You haven't reported any bugs yet." 
-                    : user?.role === "Developer"
-                    ? "No bugs are currently assigned to you."
-                    : "No bugs match your current filters."
-                  }
-                </p>
-                {user?.role === "Reporter" && (
-                  <Button onClick={() => router.push("/bugs/new")}>
+                <p className="text-gray-500">No bugs found matching your criteria</p>
+                {canCreateBug() && (
+                  <Button 
+                    className="mt-4 bg-red-600 hover:bg-red-700"
+                    onClick={() => router.push("/bugs/new")}
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     Report Your First Bug
                   </Button>
                 )}
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>ID</TableHead>
-                      <TableHead>Title</TableHead>
-                      <TableHead>Priority</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Reporter</TableHead>
-                      <TableHead>Assigned To</TableHead>
-                      <TableHead>Module</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {bugs.map((bug) => (
-                      <TableRow key={bug.id} className="cursor-pointer hover:bg-gray-50">
-                        <TableCell className="font-medium">#{bug.id}</TableCell>
-                        <TableCell>
-                          <div className="max-w-xs">
-                            <p className="font-medium truncate">{bug.title}</p>
-                            <p className="text-sm text-gray-500 truncate">{bug.description}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={priorityColors[bug.priority as keyof typeof priorityColors]}>
-                            {bug.priority}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={statusColors[bug.status as keyof typeof statusColors]}>{bug.status}</Badge>
-                        </TableCell>
-                        <TableCell>{bug.reporter}</TableCell>
-                        <TableCell>{bug.assignedTo || "Unassigned"}</TableCell>
-                        <TableCell>{bug.module}</TableCell>
-                        <TableCell>{formatDate(bug.createdAt)}</TableCell>
-                        <TableCell>
-                          <Button variant="outline" size="sm" onClick={() => router.push(`/bugs/${bug.id}`)}>
-                            View
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
               </div>
             )}
           </CardContent>

@@ -58,3 +58,70 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
   logger.info(`User logged in: ${email}`);
   return res.json({ token, user: userData });
 };
+
+
+
+export const getAllUsers = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const users = await User.findAll({
+      attributes: { exclude: ['password'] }, // Exclude password
+    });
+
+    return res.json({ users });
+  } catch (error) {
+    return next(new ApiError('Failed to fetch users.', ErrorCodes.INTERNAL_SERVER_ERROR.statusCode));
+  }
+};
+
+
+
+export const updateUserRole = async (req: Request, res: Response, next: NextFunction) => {
+  const { id } = req.params;
+  const { name,email,role } = req.body;
+
+  try {
+    const user = await User.findByPk(id);
+    if (!user) {
+      return next(new ApiError('User not found.', ErrorCodes.NOT_FOUND.statusCode));
+    }
+
+    if (user.get('role') === 'Admin') {
+      return next(new ApiError('Cannot assign Admin role.', ErrorCodes.FORBIDDEN.statusCode));
+    }
+
+    await user.update({ name,email,role });
+
+    const updatedUser = user.toJSON(); // include password
+
+  logger.info(`User role updated`, { id, name, email, role });
+
+    return res.json({ message: 'User updated successfully', user: updatedUser });
+  } catch (error) {
+    return next(new ApiError('Failed to update user role.', ErrorCodes.INTERNAL_SERVER_ERROR.statusCode));
+  }
+};
+
+
+
+export const deleteUserById = async (req: Request, res: Response, next: NextFunction) => {
+  const { id } = req.params;
+
+  const user = await User.findByPk(id);
+  if (!user) {
+    return next(new ApiError('User not found.', ErrorCodes.NOT_FOUND.statusCode));
+  }
+
+  if (user.get('role') === 'Admin') {
+    return next(new ApiError('Admin users cannot be deleted.', ErrorCodes.FORBIDDEN.statusCode));
+  }
+
+  await user.destroy();
+
+  logger.info(`User deleted: ID ${id}`);
+  return res.json({ message: 'User deleted successfully' });
+};
+
+
+
+
+

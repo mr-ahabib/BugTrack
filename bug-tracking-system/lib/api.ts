@@ -116,6 +116,7 @@ const dummyComments = [
 
 // Helper function to get current user from localStorage
 function getCurrentUserFromStorage() {
+  if (typeof window === 'undefined') return null;
   const user = localStorage.getItem('user');
   return user ? JSON.parse(user) : null;
 }
@@ -142,66 +143,66 @@ function filterBugsByRole(bugs: any[], user: any) {
 
 // --- Authentication Functions ---
 export function login(email: string, password: string) {
-  // Simulate API delay
   return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      const user = dummyUsers.find(u => u.email === email);
-      if (!user || password !== 'password') {
-        reject(new Error('Invalid credentials'));
-        return;
-      }
-      
-      const token = 'dummy-token-' + Date.now();
+    const user = dummyUsers.find(u => u.email === email);
+    if (!user || password !== 'password') {
+      reject(new Error('Invalid credentials'));
+      return;
+    }
+    
+    const token = 'dummy-token-' + Date.now();
+    if (typeof window !== 'undefined') {
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
-      resolve({ user, token });
-    }, 500);
+    }
+    resolve({ user, token });
   });
 }
 
 export function register(userData: any) {
   return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      // Check if user already exists
-      if (dummyUsers.find(u => u.email === userData.email)) {
-        reject(new Error('User already exists'));
-        return;
-      }
-      
-      const newUser = {
-        id: dummyUsers.length + 1,
-        ...userData,
-        status: 'Active'
-      };
-      
-      dummyUsers.push(newUser);
-      
-      const token = 'dummy-token-' + Date.now();
+    // Check if user already exists
+    if (dummyUsers.find(u => u.email === userData.email)) {
+      reject(new Error('User already exists'));
+      return;
+    }
+    
+    const newUser = {
+      id: dummyUsers.length + 1,
+      ...userData,
+      status: 'Active'
+    };
+    
+    dummyUsers.push(newUser);
+    
+    const token = 'dummy-token-' + Date.now();
+    if (typeof window !== 'undefined') {
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(newUser));
-      resolve({ user: newUser, token });
-    }, 500);
+    }
+    resolve({ user: newUser, token });
   });
 }
 
 export function getCurrentUser() {
   return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve(getCurrentUserFromStorage());
-    }, 200);
+    resolve(getCurrentUserFromStorage());
   });
 }
 
 export function logout() {
+  if (typeof window === 'undefined') return;
   localStorage.removeItem('token');
   localStorage.removeItem('user');
 }
 
 export function getToken() {
+  if (typeof window === 'undefined') return null;
   return localStorage.getItem('token');
 }
 
 export function getUser() {
+  if (typeof window === 'undefined') return null;
   const user = localStorage.getItem('user');
   return user ? JSON.parse(user) : null;
 }
@@ -209,334 +210,308 @@ export function getUser() {
 // --- Bug Functions ---
 export function fetchBugs(params?: Record<string, any>) {
   return new Promise((resolve) => {
-    setTimeout(() => {
-      const user = getCurrentUserFromStorage();
-      let filteredBugs = filterBugsByRole(dummyBugs, user);
-      
-      // Apply filters
-      if (params?.status && params.status !== 'all') {
-        filteredBugs = filteredBugs.filter(bug => bug.status === params.status);
-      }
-      if (params?.priority && params.priority !== 'all') {
-        filteredBugs = filteredBugs.filter(bug => bug.priority === params.priority);
-      }
-      if (params?.module && params.module !== 'all') {
-        filteredBugs = filteredBugs.filter(bug => bug.module === params.module);
-      }
-      if (params?.search) {
-        const search = params.search.toLowerCase();
-        filteredBugs = filteredBugs.filter(bug => 
-          bug.title.toLowerCase().includes(search) ||
-          bug.description.toLowerCase().includes(search)
-        );
-      }
-      
-      resolve(filteredBugs);
-    }, 300);
+    const user = getCurrentUserFromStorage();
+    let filteredBugs = filterBugsByRole(dummyBugs, user);
+    
+    // Apply filters
+    if (params?.status && params.status !== 'all') {
+      filteredBugs = filteredBugs.filter(bug => bug.status === params.status);
+    }
+    if (params?.priority && params.priority !== 'all') {
+      filteredBugs = filteredBugs.filter(bug => bug.priority === params.priority);
+    }
+    if (params?.module && params.module !== 'all') {
+      filteredBugs = filteredBugs.filter(bug => bug.module === params.module);
+    }
+    if (params?.search) {
+      const search = params.search.toLowerCase();
+      filteredBugs = filteredBugs.filter(bug => 
+        bug.title.toLowerCase().includes(search) ||
+        bug.description.toLowerCase().includes(search)
+      );
+    }
+    
+    resolve(filteredBugs);
   });
 }
 
 export function fetchBug(id: string | number) {
   return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      const user = getCurrentUserFromStorage();
-      const bug = dummyBugs.find(b => b.id === parseInt(id.toString()));
-      
-      if (!bug) {
-        reject(new Error('Bug not found'));
-        return;
-      }
-      
-      // Check permissions
-      if (user.role === 'Reporter' && bug.userId !== user.id) {
-        reject(new Error('Access denied'));
-        return;
-      }
-      if (user.role === 'Developer' && bug.assignedToId !== user.id && bug.userId !== user.id) {
-        reject(new Error('Access denied'));
-        return;
-      }
-      
-      // Add comments to bug
-      const bugComments = dummyComments.filter(c => c.bugId === bug.id);
-      resolve({ ...bug, comments: bugComments });
-    }, 200);
+    const user = getCurrentUserFromStorage();
+    const bug = dummyBugs.find(b => b.id === parseInt(id.toString()));
+    
+    if (!bug) {
+      reject(new Error('Bug not found'));
+      return;
+    }
+    
+    // Check permissions
+    if (user.role === 'Reporter' && bug.userId !== user.id) {
+      reject(new Error('Access denied'));
+      return;
+    }
+    if (user.role === 'Developer' && bug.assignedToId !== user.id && bug.userId !== user.id) {
+      reject(new Error('Access denied'));
+      return;
+    }
+    
+    // Add comments to bug
+    const bugComments = dummyComments.filter(c => c.bugId === bug.id);
+    resolve({ ...bug, comments: bugComments });
   });
 }
 
 export function createBug(data: any) {
   return new Promise((resolve) => {
-    setTimeout(() => {
-      const user = getCurrentUserFromStorage();
-      const newBug = {
-        id: dummyBugs.length + 1,
-        ...data,
-        status: 'Open',
-        reporter: user.name,
-        assignedTo: null,
-        assignedToId: null,
-        userId: user.id,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        screenshots: []
-      };
-      
-      dummyBugs.push(newBug);
-      
-      // Simulate email notification to admin
-      console.log(`Email sent to admin: New bug reported by ${user.name}`);
-      
-      resolve(newBug);
-    }, 500);
+    const user = getCurrentUserFromStorage();
+    const newBug = {
+      id: dummyBugs.length + 1,
+      ...data,
+      status: 'Open',
+      reporter: user.name,
+      assignedTo: null,
+      assignedToId: null,
+      userId: user.id,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      screenshots: []
+    };
+    
+    dummyBugs.push(newBug);
+    
+    // Simulate email notification to admin
+    console.log(`Email sent to admin: New bug reported by ${user.name}`);
+    
+    resolve(newBug);
   });
 }
 
 export function updateBug(id: string | number, data: any) {
   return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      const user = getCurrentUserFromStorage();
-      const bugIndex = dummyBugs.findIndex(b => b.id === parseInt(id.toString()));
-      
-      if (bugIndex === -1) {
-        reject(new Error('Bug not found'));
-        return;
-      }
-      
-      const bug = dummyBugs[bugIndex];
-      
-      // Check permissions
-      if (user.role === 'Reporter' && bug.userId !== user.id) {
-        reject(new Error('Access denied'));
-        return;
-      }
-      if (user.role === 'Developer' && bug.assignedToId !== user.id && bug.userId !== user.id) {
-        reject(new Error('Access denied'));
-        return;
-      }
-      
-      // Update bug
-      const updatedBug = { ...bug, ...data, updatedAt: new Date().toISOString() };
-      dummyBugs[bugIndex] = updatedBug;
-      
-      // Simulate email notifications
-      if (data.status && data.status !== bug.status) {
-        console.log(`Email sent to ${bug.reporter}: Bug status updated to ${data.status}`);
-      }
-      if (data.assignedTo && data.assignedTo !== bug.assignedTo) {
-        console.log(`Email sent to ${data.assignedTo}: Bug assigned to you`);
-      }
-      
-      resolve(updatedBug);
-    }, 300);
+    const user = getCurrentUserFromStorage();
+    const bugIndex = dummyBugs.findIndex(b => b.id === parseInt(id.toString()));
+    
+    if (bugIndex === -1) {
+      reject(new Error('Bug not found'));
+      return;
+    }
+    
+    const bug = dummyBugs[bugIndex];
+    
+    // Check permissions
+    if (user.role === 'Reporter' && bug.userId !== user.id) {
+      reject(new Error('Access denied'));
+      return;
+    }
+    if (user.role === 'Developer' && bug.assignedToId !== user.id && bug.userId !== user.id) {
+      reject(new Error('Access denied'));
+      return;
+    }
+    
+    // Update bug
+    const updatedBug = { ...bug, ...data, updatedAt: new Date().toISOString() };
+    dummyBugs[bugIndex] = updatedBug;
+    
+    // Simulate email notifications
+    if (data.status && data.status !== bug.status) {
+      console.log(`Email sent to ${bug.reporter}: Bug status updated to ${data.status}`);
+    }
+    if (data.assignedTo && data.assignedTo !== bug.assignedTo) {
+      console.log(`Email sent to ${data.assignedTo}: Bug assigned to you`);
+    }
+    
+    resolve(updatedBug);
   });
 }
 
 export function deleteBug(id: string | number) {
   return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      const user = getCurrentUserFromStorage();
-      const bugIndex = dummyBugs.findIndex(b => b.id === parseInt(id.toString()));
-      
-      if (bugIndex === -1) {
-        reject(new Error('Bug not found'));
-        return;
-      }
-      
-      const bug = dummyBugs[bugIndex];
-      
-      // Only Admin can delete bugs
-      if (user.role !== 'Admin') {
-        reject(new Error('Access denied'));
-        return;
-      }
-      
-      dummyBugs.splice(bugIndex, 1);
-      resolve({ message: 'Bug deleted successfully' });
-    }, 300);
+    const user = getCurrentUserFromStorage();
+    const bugIndex = dummyBugs.findIndex(b => b.id === parseInt(id.toString()));
+    
+    if (bugIndex === -1) {
+      reject(new Error('Bug not found'));
+      return;
+    }
+    
+    const bug = dummyBugs[bugIndex];
+    
+    // Only Admin can delete bugs
+    if (user.role !== 'Admin') {
+      reject(new Error('Access denied'));
+      return;
+    }
+    
+    dummyBugs.splice(bugIndex, 1);
+    resolve({ message: 'Bug deleted successfully' });
   });
 }
 
 export function fetchBugStats() {
   return new Promise((resolve) => {
-    setTimeout(() => {
-      const user = getCurrentUserFromStorage();
-      let filteredBugs = filterBugsByRole(dummyBugs, user);
-      
-      resolve({
-        totalBugs: filteredBugs.length,
-        openBugs: filteredBugs.filter(bug => bug.status === 'Open').length,
-        inProgress: filteredBugs.filter(bug => bug.status === 'In Progress').length,
-        resolved: filteredBugs.filter(bug => bug.status === 'Resolved').length
-      });
-    }, 200);
+    const user = getCurrentUserFromStorage();
+    let filteredBugs = filterBugsByRole(dummyBugs, user);
+    
+    resolve({
+      totalBugs: filteredBugs.length,
+      openBugs: filteredBugs.filter(bug => bug.status === 'Open').length,
+      inProgress: filteredBugs.filter(bug => bug.status === 'In Progress').length,
+      resolved: filteredBugs.filter(bug => bug.status === 'Resolved').length
+    });
   });
 }
 
 // --- User Functions ---
 export function fetchUsers() {
   return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      const user = getCurrentUserFromStorage();
-      if (user.role !== 'Admin') {
-        reject(new Error('Access denied'));
-        return;
-      }
-      
-      resolve(dummyUsers.map(u => ({
-        ...u,
-        bugsReported: dummyBugs.filter(b => b.userId === u.id).length,
-        bugsAssigned: dummyBugs.filter(b => b.assignedToId === u.id).length
-      })));
-    }, 300);
+    const user = getCurrentUserFromStorage();
+    if (user.role !== 'Admin') {
+      reject(new Error('Access denied'));
+      return;
+    }
+    
+    resolve(dummyUsers.map(u => ({
+      ...u,
+      bugsReported: dummyBugs.filter(b => b.userId === u.id).length,
+      bugsAssigned: dummyBugs.filter(b => b.assignedToId === u.id).length
+    })));
   });
 }
 
 export function fetchUser(id: string | number) {
   return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      const user = getCurrentUserFromStorage();
-      if (user.id !== parseInt(id.toString()) && user.role !== 'Admin') {
-        reject(new Error('Access denied'));
-        return;
-      }
-      
-      const foundUser = dummyUsers.find(u => u.id === parseInt(id.toString()));
-      if (!foundUser) {
-        reject(new Error('User not found'));
-        return;
-      }
-      
-      resolve(foundUser);
-    }, 200);
+    const user = getCurrentUserFromStorage();
+    if (user.id !== parseInt(id.toString()) && user.role !== 'Admin') {
+      reject(new Error('Access denied'));
+      return;
+    }
+    
+    const foundUser = dummyUsers.find(u => u.id === parseInt(id.toString()));
+    if (!foundUser) {
+      reject(new Error('User not found'));
+      return;
+    }
+    
+    resolve(foundUser);
   });
 }
 
 export function createUser(data: any) {
   return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      const user = getCurrentUserFromStorage();
-      if (user.role !== 'Admin') {
-        reject(new Error('Access denied'));
-        return;
-      }
-      
-      const newUser = {
-        id: dummyUsers.length + 1,
-        ...data,
-        status: 'Active'
-      };
-      
-      dummyUsers.push(newUser);
-      resolve(newUser);
-    }, 500);
+    const user = getCurrentUserFromStorage();
+    if (user.role !== 'Admin') {
+      reject(new Error('Access denied'));
+      return;
+    }
+    
+    const newUser = {
+      id: dummyUsers.length + 1,
+      ...data,
+      status: 'Active'
+    };
+    
+    dummyUsers.push(newUser);
+    resolve(newUser);
   });
 }
 
 export function updateUser(id: string | number, data: any) {
   return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      const user = getCurrentUserFromStorage();
-      if (user.role !== 'Admin') {
-        reject(new Error('Access denied'));
-        return;
-      }
-      
-      const userIndex = dummyUsers.findIndex(u => u.id === parseInt(id.toString()));
-      if (userIndex === -1) {
-        reject(new Error('User not found'));
-        return;
-      }
-      
-      const updatedUser = { ...dummyUsers[userIndex], ...data };
-      dummyUsers[userIndex] = updatedUser;
-      
-      resolve(updatedUser);
-    }, 300);
+    const user = getCurrentUserFromStorage();
+    if (user.role !== 'Admin') {
+      reject(new Error('Access denied'));
+      return;
+    }
+    
+    const userIndex = dummyUsers.findIndex(u => u.id === parseInt(id.toString()));
+    if (userIndex === -1) {
+      reject(new Error('User not found'));
+      return;
+    }
+    
+    const updatedUser = { ...dummyUsers[userIndex], ...data };
+    dummyUsers[userIndex] = updatedUser;
+    
+    resolve(updatedUser);
   });
 }
 
 export function deleteUser(id: string | number) {
   return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      const user = getCurrentUserFromStorage();
-      if (user.role !== 'Admin') {
-        reject(new Error('Access denied'));
-        return;
-      }
-      
-      const userIndex = dummyUsers.findIndex(u => u.id === parseInt(id.toString()));
-      if (userIndex === -1) {
-        reject(new Error('User not found'));
-        return;
-      }
-      
-      dummyUsers.splice(userIndex, 1);
-      resolve({ message: 'User deleted successfully' });
-    }, 300);
+    const user = getCurrentUserFromStorage();
+    if (user.role !== 'Admin') {
+      reject(new Error('Access denied'));
+      return;
+    }
+    
+    const userIndex = dummyUsers.findIndex(u => u.id === parseInt(id.toString()));
+    if (userIndex === -1) {
+      reject(new Error('User not found'));
+      return;
+    }
+    
+    dummyUsers.splice(userIndex, 1);
+    resolve({ message: 'User deleted successfully' });
   });
 }
 
 // --- Comment Functions ---
 export function addComment(bugId: number, text: string) {
   return new Promise((resolve) => {
-    setTimeout(() => {
-      const user = getCurrentUserFromStorage();
-      const newComment = {
-        id: dummyComments.length + 1,
-        bugId,
-        user: { name: user.name, role: user.role },
-        text,
-        createdAt: new Date().toISOString()
-      };
-      
-      dummyComments.push(newComment);
-      
-      // Simulate email notification
-      const bug = dummyBugs.find(b => b.id === bugId);
-      if (bug && bug.reporter !== user.name) {
-        console.log(`Email sent to ${bug.reporter}: New comment added to bug #${bugId}`);
-      }
-      
-      resolve(newComment);
-    }, 300);
+    const user = getCurrentUserFromStorage();
+    const newComment = {
+      id: dummyComments.length + 1,
+      bugId,
+      user: { name: user.name, role: user.role },
+      text,
+      createdAt: new Date().toISOString()
+    };
+    
+    dummyComments.push(newComment);
+    
+    // Simulate email notification
+    const bug = dummyBugs.find(b => b.id === bugId);
+    if (bug && bug.reporter !== user.name) {
+      console.log(`Email sent to ${bug.reporter}: New comment added to bug #${bugId}`);
+    }
+    
+    resolve(newComment);
   });
 }
 
 // --- Export Functions ---
 export function exportBugAsPDF(bugId: number) {
   return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      const user = getCurrentUserFromStorage();
-      const bug = dummyBugs.find(b => b.id === bugId);
-      
-      if (!bug) {
-        reject(new Error('Bug not found'));
-        return;
-      }
-      
-      // Check permissions
-      if (user.role === 'Reporter' && bug.userId !== user.id) {
-        reject(new Error('Access denied'));
-        return;
-      }
-      if (user.role === 'Developer' && bug.assignedToId !== user.id && bug.userId !== user.id) {
-        reject(new Error('Access denied'));
-        return;
-      }
-      
-      // Simulate PDF generation
-      console.log(`Generating PDF for bug #${bugId}`);
-      
-      // Create a dummy download link
-      const blob = new Blob([`Bug Report #${bugId}\n\nTitle: ${bug.title}\nDescription: ${bug.description}\nStatus: ${bug.status}\nPriority: ${bug.priority}\nReporter: ${bug.reporter}\nAssigned To: ${bug.assignedTo || 'Unassigned'}\nCreated: ${bug.createdAt}`], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `bug-report-${bugId}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-      
-      resolve({ message: 'PDF exported successfully' });
-    }, 1000);
+    const user = getCurrentUserFromStorage();
+    const bug = dummyBugs.find(b => b.id === bugId);
+    
+    if (!bug) {
+      reject(new Error('Bug not found'));
+      return;
+    }
+    
+    // Check permissions
+    if (user.role === 'Reporter' && bug.userId !== user.id) {
+      reject(new Error('Access denied'));
+      return;
+    }
+    if (user.role === 'Developer' && bug.assignedToId !== user.id && bug.userId !== user.id) {
+      reject(new Error('Access denied'));
+      return;
+    }
+    
+    // Simulate PDF generation
+    console.log(`Generating PDF for bug #${bugId}`);
+    
+    // Create a dummy download link
+    const blob = new Blob([`Bug Report #${bugId}\n\nTitle: ${bug.title}\nDescription: ${bug.description}\nStatus: ${bug.status}\nPriority: ${bug.priority}\nReporter: ${bug.reporter}\nAssigned To: ${bug.assignedTo || 'Unassigned'}\nCreated: ${bug.createdAt}`], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bug-report-${bugId}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    resolve({ message: 'PDF exported successfully' });
   });
 } 

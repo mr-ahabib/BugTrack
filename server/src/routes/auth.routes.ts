@@ -1,8 +1,11 @@
 import { Router } from 'express';
-import { signup, login } from '../controllers/auth.controller';
-
+import { signup, login, getAllUsers, updateUserRole, deleteUserById } from '../controllers/auth.controller';
+import { authenticate } from '../middleware/auth';
+import { isAdmin } from '../middleware/isAdmin';
 const router = Router();
 router.post('/signup', signup);
 router.post('/login', login);
-
+router.get('/alluser', authenticate, isAdmin, getAllUsers);
+router.put('/updateUser/:id', authenticate,isAdmin,updateUserRole);
+router.delete('/deleteUser/:id', authenticate, isAdmin, deleteUserById);
 export default router;
