@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ArrowLeft, Download, Edit, MessageCircle, Calendar, User, Tag, AlertTriangle, Trash2, Bug, FileText, Activity } from "lucide-react"
-import { fetchBug, updateBug, deleteBug, addComment, exportBugAsPDF, getUser } from "@/lib/api"
+import { fetchBug, updateBug, deleteBug, addComment, exportBugAsPDF, fetchDevelopers, updateBugAssignment, getUser } from "@/lib/api"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 
@@ -28,11 +28,7 @@ const statusColors = {
   Closed: "bg-gray-100 text-gray-800",
 }
 
-// Mock developers for assignment
-const mockDevelopers = [
-  { id: 2, name: "Sarah Wilson", email: "sarah@example.com" },
-  { id: 3, name: "Mike Johnson", email: "mike@example.com" },
-]
+
 
 export default function BugDetails() {
   const router = useRouter()
@@ -40,12 +36,22 @@ export default function BugDetails() {
   const [bug, setBug] = useState<any>(null)
   const [comments, setComments] = useState<any[]>([])
   const [newComment, setNewComment] = useState("")
-  const [isEditing, setIsEditing] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [user, setUser] = useState<any>(null)
+  const [imageError, setImageError] = useState(false)
+  const [imageLoading, setImageLoading] = useState(false)
+  const [developers, setDevelopers] = useState<any[]>([])
+  const [developersLoading, setDevelopersLoading] = useState(false)
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted) return
+    
     const currentUser = getUser()
     if (!currentUser) {
       router.push("/login")
@@ -53,7 +59,8 @@ export default function BugDetails() {
     }
     setUser(currentUser)
     loadBug()
-  }, [params.id])
+    loadDevelopers()
+  }, [mounted, params.id])
 
   const loadBug = async () => {
     try {
@@ -69,46 +76,52 @@ export default function BugDetails() {
     }
   }
 
-  const handleStatusChange = async (newStatus: string) => {
+  const loadDevelopers = async () => {
     try {
-      const updatedBug = await updateBug(bug.id, { status: newStatus })
-      setBug(updatedBug)
+      setDevelopersLoading(true)
+      console.log('Loading developers...')
+      const developersData = await fetchDevelopers()
+      console.log('Developers data received:', developersData)
+      // Ensure developers is always an array
+      const developersArray = Array.isArray(developersData) ? developersData : []
+      console.log('Setting developers array:', developersArray)
+      setDevelopers(developersArray)
     } catch (err: any) {
-      setError(err.message)
+      console.error('Failed to load developers:', err)
+      setDevelopers([])
+    } finally {
+      setDevelopersLoading(false)
     }
   }
 
-  const handlePriorityChange = async (newPriority: string) => {
-    try {
-      const updatedBug = await updateBug(bug.id, { priority: newPriority })
-      setBug(updatedBug)
-    } catch (err: any) {
-      setError(err.message)
-    }
-  }
+
 
   const handleAssignDeveloper = async (developerId: string) => {
     try {
-      const developer = mockDevelopers.find(d => d.id === parseInt(developerId))
-      const updatedBug = await updateBug(bug.id, { 
-        assignedTo: developer?.name || null,
-        assignedToId: developerId === "unassigned" ? null : parseInt(developerId)
-      })
-      setBug(updatedBug)
+      console.log('Assigning developer:', developerId);
+      
+      // Convert developerId to number or null for unassigned
+      const assignedTo = developerId === "unassigned" ? null : parseInt(developerId);
+      
+      // Call the new API endpoint
+      await updateBugAssignment(bug.id, assignedTo);
+      
+      // Update local state instead of reloading
+      const developer = developers.find(d => d.id === parseInt(developerId));
+      setBug({
+        ...bug,
+        assigned_to: developer?.name || null,
+        assignedToId: assignedTo
+      });
+      
+      console.log('Developer assignment updated successfully');
     } catch (err: any) {
+      console.error('Error assigning developer:', err);
       setError(err.message)
     }
   }
 
-  const handleSaveChanges = async () => {
-    try {
-      const updatedBug = await updateBug(bug.id, bug)
-      setBug(updatedBug)
-      setIsEditing(false)
-    } catch (err: any) {
-      setError(err.message)
-    }
-  }
+
 
   const handleDeleteBug = async () => {
     if (!confirm("Are you sure you want to delete this bug?")) return
@@ -142,6 +155,7 @@ export default function BugDetails() {
   }
 
   const formatDate = (dateString: string) => {
+    if (!mounted) return dateString; // Return raw string during SSR
     return new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
       month: "long",
@@ -151,9 +165,7 @@ export default function BugDetails() {
     })
   }
 
-  const canEditBug = () => {
-    return user?.role === "Admin" || user?.role === "Developer" || bug?.reporter === user?.name
-  }
+
 
   const canDeleteBug = () => {
     return user?.role === "Admin"
@@ -163,12 +175,24 @@ export default function BugDetails() {
     return user?.role === "Admin" || user?.role === "Developer"
   }
 
-  if (loading) {
+  if (loading || !mounted) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-red-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading bug details...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Don't render anything that depends on user state until mounted
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-red-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Initializing...</p>
         </div>
       </div>
     )
@@ -190,6 +214,8 @@ export default function BugDetails() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-4 mb-4">
@@ -222,18 +248,7 @@ export default function BugDetails() {
                     <CardTitle className="tracking-wide">Bug Details</CardTitle>
                   </div>
                   <div className="flex items-center gap-2">
-                    {canEditBug() && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsEditing(!isEditing)}
-                        className="rounded-full shadow hover:shadow-lg"
-                      >
-                        <Edit className="h-4 w-4 mr-2" />
-                        {isEditing ? "Cancel" : "Edit"}
-                      </Button>
-                    )}
-                    {canDeleteBug() && (
+                    {mounted && canDeleteBug() && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -260,147 +275,113 @@ export default function BugDetails() {
                 {/* Title */}
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-gray-600">Title</Label>
-                  {isEditing ? (
-                    <Input
-                      value={bug.title}
-                      onChange={(e) => setBug({ ...bug, title: e.target.value })}
-                      className="bg-white/50"
-                    />
-                  ) : (
-                    <p className="text-lg font-medium text-gray-900">{bug.title}</p>
-                  )}
+                  <p className="text-lg font-medium text-gray-900">{bug.title}</p>
                 </div>
 
                 {/* Status and Priority */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label className="text-sm font-medium text-gray-600">Status</Label>
-                    {isEditing ? (
-                      <Select value={bug.status} onValueChange={handleStatusChange}>
-                        <SelectTrigger className="bg-white/50">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Open">Open</SelectItem>
-                          <SelectItem value="In Progress">In Progress</SelectItem>
-                          <SelectItem value="Resolved">Resolved</SelectItem>
-                          <SelectItem value="Closed">Closed</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Badge className={statusColors[bug.status as keyof typeof statusColors]}>
-                        {bug.status}
-                      </Badge>
-                    )}
+                    <Badge className={statusColors[bug.status as keyof typeof statusColors]}>
+                      {bug.status}
+                    </Badge>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-medium text-gray-600">Priority</Label>
-                    {isEditing ? (
-                      <Select value={bug.priority} onValueChange={handlePriorityChange}>
-                        <SelectTrigger className="bg-white/50">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Low">Low</SelectItem>
-                          <SelectItem value="Medium">Medium</SelectItem>
-                          <SelectItem value="High">High</SelectItem>
-                          <SelectItem value="Critical">Critical</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Badge className={priorityColors[bug.priority as keyof typeof priorityColors]}>
-                        {bug.priority}
-                      </Badge>
-                    )}
+                    <Badge className={priorityColors[bug.priority as keyof typeof priorityColors]}>
+                      {bug.priority}
+                    </Badge>
                   </div>
                 </div>
 
                 {/* Description */}
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-gray-600">Description</Label>
-                  {isEditing ? (
-                    <Textarea
-                      value={bug.description}
-                      onChange={(e) => setBug({ ...bug, description: e.target.value })}
-                      rows={4}
-                      className="bg-white/50"
-                    />
-                  ) : (
-                    <p className="text-gray-700 bg-white/60 rounded-xl px-4 py-2 shadow-sm">{bug.description}</p>
-                  )}
+                  <p className="text-gray-700 bg-white/60 rounded-xl px-4 py-2 shadow-sm">{bug.description}</p>
                 </div>
 
                 {/* Steps to Reproduce */}
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-gray-600">Steps to Reproduce</Label>
-                  {isEditing ? (
-                    <Textarea
-                      value={bug.stepsToReproduce}
-                      onChange={(e) => setBug({ ...bug, stepsToReproduce: e.target.value })}
-                      rows={4}
-                      className="bg-white/50"
-                    />
-                  ) : (
-                    <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl shadow-inner border border-gray-100">
-                      <pre className="whitespace-pre-wrap text-sm text-gray-700">{bug.stepsToReproduce}</pre>
-                    </div>
-                  )}
+                  <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl shadow-inner border border-gray-100">
+                    <pre className="whitespace-pre-wrap text-sm text-gray-700">{bug.steps}</pre>
+                  </div>
                 </div>
 
                 {/* Expected vs Actual Behavior */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label className="text-sm font-medium text-gray-600">Expected Behavior</Label>
-                    {isEditing ? (
-                      <Textarea
-                        value={bug.expectedBehavior}
-                        onChange={(e) => setBug({ ...bug, expectedBehavior: e.target.value })}
-                        rows={3}
-                        className="bg-white/50"
-                      />
-                    ) : (
-                      <p className="text-gray-700 bg-green-50 rounded-xl px-4 py-2 shadow-sm">{bug.expectedBehavior}</p>
-                    )}
+                    <p className="text-gray-700 bg-green-50 rounded-xl px-4 py-2 shadow-sm">{bug.expected_behavior}</p>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm font-medium text-gray-600">Actual Behavior</Label>
-                    {isEditing ? (
-                      <Textarea
-                        value={bug.actualBehavior}
-                        onChange={(e) => setBug({ ...bug, actualBehavior: e.target.value })}
-                        rows={3}
-                        className="bg-white/50"
-                      />
-                    ) : (
-                      <p className="text-gray-700 bg-red-50 rounded-xl px-4 py-2 shadow-sm">{bug.actualBehavior}</p>
-                    )}
+                    <p className="text-gray-700 bg-red-50 rounded-xl px-4 py-2 shadow-sm">{bug.actual_behavior}</p>
                   </div>
                 </div>
 
                 {/* Screenshots */}
-                {bug.screenshots && bug.screenshots.length > 0 && (
+                {bug.screenshot_url && (
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium text-gray-600">Screenshots</Label>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {bug.screenshots.map((screenshot: string, index: number) => (
-                        <div key={index} className="border rounded-2xl overflow-hidden shadow-lg bg-white/70">
-                          <img src={screenshot} alt={`Screenshot ${index + 1}`} className="w-full h-auto" />
+                    <Label className="text-sm font-medium text-gray-600">Screenshot</Label>
+                    <div className="border rounded-2xl overflow-hidden shadow-lg bg-white/70">
+                      {imageError ? (
+                        <div className="p-4 text-center">
+                          <p className="text-gray-500 mb-2">Image failed to load</p>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={async () => {
+                              setImageError(false);
+                              setImageLoading(true);
+                              
+                              // Test if image is accessible via proxy
+                              try {
+                                const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(bug.screenshot_url)}`;
+                                const response = await fetch(proxyUrl, { method: 'HEAD' });
+                                if (response.ok) {
+                                  // Force re-render with proxy
+                                  const img = document.querySelector('img[src="' + proxyUrl + '"]');
+                                  if (img) img.src = proxyUrl;
+                                }
+                              } catch (error) {
+                                // Silent error handling
+                              } finally {
+                                setImageLoading(false);
+                              }
+                            }}
+                            disabled={imageLoading}
+                          >
+                            {imageLoading ? 'Testing...' : 'Retry'}
+                          </Button>
+                          <p className="text-xs text-gray-400 mt-2">{bug.screenshot_url}</p>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            className="mt-2"
+                            onClick={() => window.open(bug.screenshot_url, '_blank')}
+                          >
+                            Open in New Tab
+                          </Button>
                         </div>
-                      ))}
+                      ) : (
+                        <img 
+                          src={`/api/image-proxy?url=${encodeURIComponent(bug.screenshot_url)}`} 
+                          alt="Bug Screenshot" 
+                          className="w-full h-auto"
+                          onLoad={() => {
+                            setImageError(false);
+                          }}
+                          onError={(e) => {
+                            setImageError(true);
+                          }}
+                        />
+                      )}
                     </div>
                   </div>
                 )}
 
-                {isEditing && (
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => setIsEditing(false)}>
-                      Cancel
-                    </Button>
-                    <Button onClick={handleSaveChanges} className="bg-blue-600 hover:bg-blue-700">
-                      Save Changes
-                    </Button>
-                  </div>
-                )}
+
               </CardContent>
             </Card>
 
@@ -489,7 +470,7 @@ export default function BugDetails() {
                   <User className="h-4 w-4 text-gray-400" />
                   <div className="text-sm">
                     <p className="text-gray-600">Reporter</p>
-                    <p className="font-medium">{bug.reporter}</p>
+                    <p className="font-medium">{bug.reporter || `User ID: ${bug.user_id}`}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -512,44 +493,55 @@ export default function BugDetails() {
             </Card>
 
             {/* Assignment */}
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-white/90 to-white/70 backdrop-blur-xl rounded-2xl">
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <div className="p-2 bg-blue-100 rounded-full">
-                    <User className="h-4 w-4 text-blue-600" />
+            {mounted && (
+              <Card className="border-0 shadow-lg bg-gradient-to-br from-white/90 to-white/70 backdrop-blur-xl rounded-2xl">
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 bg-blue-100 rounded-full">
+                      <User className="h-4 w-4 text-blue-600" />
+                    </div>
+                    <CardTitle>Assignment</CardTitle>
                   </div>
-                  <CardTitle>Assignment</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {canAssignDeveloper() ? (
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-gray-600">Assign To</Label>
-                    <Select
-                      value={bug.assignedToId?.toString() || "unassigned"}
-                      onValueChange={handleAssignDeveloper}
-                    >
-                      <SelectTrigger className="bg-white/50">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="unassigned">Unassigned</SelectItem>
-                        {mockDevelopers.map((developer) => (
-                          <SelectItem key={developer.id} value={developer.id.toString()}>
-                            {developer.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ) : (
-                  <div className="text-sm">
-                    <p className="text-gray-600">Assigned To</p>
-                    <p className="font-medium">{bug.assignedTo || "Unassigned"}</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {mounted && canAssignDeveloper() ? (
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-gray-600">Assign To</Label>
+                      {developersLoading ? (
+                        <div className="text-sm text-gray-500">Loading developers...</div>
+                      ) : (
+                        <>
+                          <div className="text-xs text-gray-500 mb-2">
+                            Debug: {developers.length} developers loaded
+                          </div>
+                          <Select
+                            value={bug.assignedToId?.toString() || "unassigned"}
+                            onValueChange={handleAssignDeveloper}
+                          >
+                            <SelectTrigger className="bg-white/50">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="unassigned">Unassigned</SelectItem>
+                              {Array.isArray(developers) && developers.map((developer) => (
+                                <SelectItem key={developer.id} value={developer.id.toString()}>
+                                  {developer.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-sm">
+                      <p className="text-gray-600">Assigned To</p>
+                      <p className="font-medium">{bug.assigned_to || "Unassigned"}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Actions */}
             <Card className="border-0 shadow-lg bg-gradient-to-br from-white/90 to-white/70 backdrop-blur-xl rounded-2xl">

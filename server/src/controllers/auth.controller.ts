@@ -122,6 +122,15 @@ export const deleteUserById = async (req: Request, res: Response, next: NextFunc
 };
 
 
+export const getDevelopers = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const developers = await User.findAll({
+      attributes: ['id', 'name'],  // only select id and name
+      where: { role: 'Developer' } // filter role = Developer
+    });
 
-
-
+    return res.json({ developers });
+  } catch (error) {
+    return next(new ApiError('Failed to fetch developers.', ErrorCodes.INTERNAL_SERVER_ERROR.statusCode));
+  }
+};

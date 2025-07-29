@@ -209,80 +209,203 @@ export function getUser() {
 
 // --- Bug Functions ---
 export function fetchBugs(params?: Record<string, any>) {
-  return new Promise((resolve) => {
-    const user = getCurrentUserFromStorage();
-    let filteredBugs = filterBugsByRole(dummyBugs, user);
-    
-    // Apply filters
-    if (params?.status && params.status !== 'all') {
-      filteredBugs = filteredBugs.filter(bug => bug.status === params.status);
+  return new Promise(async (resolve, reject) => {
+    try {
+      const user = getCurrentUserFromStorage();
+      const token = getToken();
+      
+      if (!user || !token) {
+        reject(new Error('User not authenticated'));
+        return;
+      }
+
+      // Use different API endpoints based on user role
+      let apiUrl;
+      if (user.role === 'Admin') {
+        apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/allbugs`;
+      } else {
+        apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/mybugs`;
+      }
+      console.log('Fetching bugs from:', apiUrl);
+
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to fetch bugs');
+      }
+
+      const responseData = await response.json();
+      
+      // Extract bugs from the data property
+      const bugsData = responseData.data || responseData;
+
+      // Apply client-side filters if needed
+      let filteredBugs = bugsData;
+      
+      if (params?.priority && params.priority !== 'all') {
+        filteredBugs = filteredBugs.filter((bug: any) => bug.priority === params.priority);
+      }
+      if (params?.module && params.module !== 'all') {
+        filteredBugs = filteredBugs.filter((bug: any) => bug.module === params.module);
+      }
+      if (params?.search) {
+        const search = params.search.toLowerCase();
+        filteredBugs = filteredBugs.filter((bug: any) => 
+          bug.title.toLowerCase().includes(search) ||
+          bug.description.toLowerCase().includes(search)
+        );
+      }
+      
+      resolve(filteredBugs);
+    } catch (error: any) {
+      reject(new Error(error.message || 'Failed to fetch bugs'));
     }
-    if (params?.priority && params.priority !== 'all') {
-      filteredBugs = filteredBugs.filter(bug => bug.priority === params.priority);
-    }
-    if (params?.module && params.module !== 'all') {
-      filteredBugs = filteredBugs.filter(bug => bug.module === params.module);
-    }
-    if (params?.search) {
-      const search = params.search.toLowerCase();
-      filteredBugs = filteredBugs.filter(bug => 
-        bug.title.toLowerCase().includes(search) ||
-        bug.description.toLowerCase().includes(search)
-      );
-    }
-    
-    resolve(filteredBugs);
   });
 }
 
 export function fetchBug(id: string | number) {
-  return new Promise((resolve, reject) => {
-    const user = getCurrentUserFromStorage();
-    const bug = dummyBugs.find(b => b.id === parseInt(id.toString()));
-    
-    if (!bug) {
-      reject(new Error('Bug not found'));
-      return;
+  return new Promise(async (resolve, reject) => {
+    try {
+      const user = getCurrentUserFromStorage();
+      const token = getToken();
+      
+      if (!user || !token) {
+        reject(new Error('User not authenticated'));
+        return;
+      }
+
+      // Use different API endpoints based on user role
+      let apiUrl;
+      if (user.role === 'Admin') {
+        apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/allbugs`;
+      } else {
+        apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/mybugs`;
+      }
+      console.log('Fetching bug from:', apiUrl);
+
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to fetch bug');
+      }
+
+      const responseData = await response.json();
+      
+      // Extract bugs from the data property
+      const bugsData = responseData.data || responseData;
+      
+      // Find the specific bug by ID
+      const bugData = bugsData.find((bug: any) => bug.id === parseInt(id.toString()));
+      
+      if (!bugData) {
+        reject(new Error('Bug not found'));
+        return;
+      }
+      
+      // Add comments if they exist in the response
+      const bugWithComments = {
+        ...bugData,
+        comments: bugData.comments || []
+      };
+      
+      resolve(bugWithComments);
+    } catch (error: any) {
+      reject(new Error(error.message || 'Failed to fetch bug'));
     }
-    
-    // Check permissions
-    if (user.role === 'Reporter' && bug.userId !== user.id) {
-      reject(new Error('Access denied'));
-      return;
-    }
-    if (user.role === 'Developer' && bug.assignedToId !== user.id && bug.userId !== user.id) {
-      reject(new Error('Access denied'));
-      return;
-    }
-    
-    // Add comments to bug
-    const bugComments = dummyComments.filter(c => c.bugId === bug.id);
-    resolve({ ...bug, comments: bugComments });
   });
 }
 
-export function createBug(data: any) {
-  return new Promise((resolve) => {
-    const user = getCurrentUserFromStorage();
-    const newBug = {
-      id: dummyBugs.length + 1,
-      ...data,
-      status: 'Open',
-      reporter: user.name,
-      assignedTo: null,
-      assignedToId: null,
-      userId: user.id,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      screenshots: []
-    };
-    
-    dummyBugs.push(newBug);
-    
-    // Simulate email notification to admin
-    console.log(`Email sent to admin: New bug reported by ${user.name}`);
-    
-    resolve(newBug);
+export function createBug(data: any, screenshots?: File[]) {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const user = getCurrentUserFromStorage();
+      const token = getToken();
+      
+      if (!user || !token) {
+        reject(new Error('User not authenticated'));
+        return;
+      }
+
+      // Check if user can create bugs (only Reporter role)
+      if (user.role !== 'Reporter') {
+        reject(new Error('Only Reporter role can create bug reports'));
+        return;
+      }
+
+      // Create FormData for multipart/form-data
+      const formData = new FormData();
+      
+      // Add text fields
+      formData.append('title', data.title);
+      formData.append('module', data.module);
+      formData.append('priority', data.priority);
+      formData.append('description', data.description);
+      formData.append('steps', data.stepsToReproduce);
+      formData.append('expected_behavior', data.expectedBehavior);
+      formData.append('actual_behavior', data.actualBehavior);
+      
+      // Add screenshots if any
+      if (screenshots && screenshots.length > 0) {
+        screenshots.forEach((file, index) => {
+          formData.append('screenshot', file);
+        });
+      }
+
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/createBug`;
+
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          // Don't set Content-Type for FormData - browser will set it automatically with boundary
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create bug');
+      }
+
+      const newBug = await response.json();
+      
+      // Add to dummy data for consistency
+      const bugWithMetadata = {
+        ...newBug,
+        status: 'Open',
+        reporter: user.name,
+        assignedTo: null,
+        assignedToId: null,
+        userId: user.id,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      
+      dummyBugs.push(bugWithMetadata);
+      
+      resolve(bugWithMetadata);
+    } catch (error: any) {
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        reject(new Error('Network error: Unable to connect to API server. Please check if the server is running.'));
+      } else {
+        reject(new Error(error.message || 'Failed to create bug'));
+      }
+    }
   });
 }
 
@@ -480,6 +603,125 @@ export function addComment(bugId: number, text: string) {
 }
 
 // --- Export Functions ---
+export function fetchDevelopers() {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const user = getCurrentUserFromStorage();
+      const token = getToken();
+      
+      if (!user || !token) {
+        reject(new Error('User not authenticated'));
+        return;
+      }
+
+      // Use real API for fetching developers
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/developers`;
+      console.log('Fetching developers from:', apiUrl);
+
+      console.log('Token being sent:', token);
+      console.log('Token length:', token?.length);
+      console.log('User making request:', user);
+      console.log('User role:', user?.role);
+      
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
+
+      console.log('Developers API response status:', response.status);
+      console.log('Developers API response headers:', response.headers);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to fetch developers');
+      }
+
+      // Handle 304 Not Modified (cached response)
+      if (response.status === 304) {
+        console.log('Developers API returned 304 - using cached data');
+        // For 304, we might need to handle this differently
+        // Let's try to get the data anyway
+      }
+
+      let developersData;
+      try {
+        // First, let's see what the raw response looks like
+        const responseText = await response.text();
+        console.log('Raw response text:', responseText);
+        
+        if (!responseText) {
+          console.log('Empty response text - might be 304 cached response');
+          resolve([]);
+          return;
+        }
+        
+        developersData = JSON.parse(responseText);
+        console.log('Developers fetched:', developersData);
+        console.log('Developers data type:', typeof developersData);
+        console.log('Is developersData an array?', Array.isArray(developersData));
+      } catch (error) {
+        console.error('Error parsing developers response:', error);
+        console.log('Response text was:', responseText);
+        throw new Error('Failed to parse developers response');
+      }
+      
+      // Extract developers from the developers property
+      const developers = developersData.developers || developersData.data || developersData;
+      console.log('Processed developers:', developers);
+      console.log('Processed developers type:', typeof developers);
+      console.log('Is processed developers an array?', Array.isArray(developers));
+      
+      resolve(developers);
+    } catch (error: any) {
+      reject(new Error(error.message || 'Failed to fetch developers'));
+    }
+  });
+}
+
+export function updateBugAssignment(bugId: string | number, assignedTo: number | null) {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const user = getCurrentUserFromStorage();
+      const token = getToken();
+      
+      if (!user || !token) {
+        reject(new Error('User not authenticated'));
+        return;
+      }
+
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/bugs/${bugId}/assign/${assignedTo || 'unassigned'}`;
+      console.log('Updating bug assignment:', { bugId, assignedTo, apiUrl });
+
+      const response = await fetch(apiUrl, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        }
+      });
+
+      console.log('Update assignment response status:', response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update bug assignment');
+      }
+
+      const result = await response.json();
+      console.log('Update assignment result:', result);
+      
+      resolve(result);
+    } catch (error: any) {
+      reject(new Error(error.message || 'Failed to update bug assignment'));
+    }
+  });
+}
+
 export function exportBugAsPDF(bugId: number) {
   return new Promise((resolve, reject) => {
     const user = getCurrentUserFromStorage();

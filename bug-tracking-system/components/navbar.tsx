@@ -24,9 +24,16 @@ export default function Navbar() {
   const pathname = usePathname()
   const [showProfileDropdown, setShowProfileDropdown] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
-  const user = getUser()
+  const [user, setUser] = useState<any>(null)
+  const [mounted, setMounted] = useState(false)
   const profileRef = useRef<HTMLDivElement>(null)
   const notificationsRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    setMounted(true)
+    const currentUser = getUser()
+    setUser(currentUser)
+  }, [])
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -44,7 +51,7 @@ export default function Navbar() {
     }
   }, [])
 
-  if (!user) return null
+  if (!mounted || !user) return null
 
   const handleLogout = () => {
     logout()

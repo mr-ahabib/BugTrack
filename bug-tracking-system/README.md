@@ -98,6 +98,36 @@ Reporter: reporter@demo.com / password
 
 ### Registration
 - New users can register as Reporter or Developer
+
+## 🌐 API Integration
+
+### Environment Configuration
+Create a `.env.local` file in the root directory with:
+```
+NEXT_PUBLIC_API_URL=http://localhost:8080
+```
+
+### Bug Creation API
+The system now integrates with a real API for bug creation:
+
+- **Endpoint**: `POST /createBug`
+- **Content-Type**: `multipart/form-data`
+- **Authentication**: Bearer token in Authorization header
+- **Database Fields**:
+  - `title` - Bug title
+  - `module` - Module name
+  - `priority` - Priority level
+  - `description` - Bug description
+  - `steps` - Steps to reproduce
+  - `expected_behavior` - Expected behavior
+  - `actual_behavior` - Actual behavior
+  - `screenshot` - Screenshot files (multiple)
+
+### File Upload
+- Supports multiple screenshot uploads
+- Uses multer for server-side file handling
+- Accepts image files and documents
+- Files are sent as part of FormData
 - Admin users must be created by existing admins
 - Email validation and password confirmation
 

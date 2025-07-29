@@ -15,6 +15,10 @@ import { createBug, getUser } from "@/lib/api"
 
 export default function NewBug() {
   const router = useRouter()
+  
+  // Debug: Log environment variable
+  console.log('API URL:', process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080');
+  
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -30,28 +34,49 @@ export default function NewBug() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log('Form submit triggered');
     
     // Check if user is logged in
     const user = getUser()
+    console.log('Current user:', user);
+    
     if (!user) {
+      console.log('No user found, redirecting to login');
       router.push("/login")
       return
     }
 
     // Check if user can create bugs
-    if (user.role !== "Reporter" && user.role !== "Admin") {
+    if (user.role !== "Reporter") {
+      console.log('User role not allowed:', user.role);
       setError("You don't have permission to create bug reports")
       return
+    }
+
+    // Validate required fields
+    const requiredFields = ['title', 'module', 'description', 'stepsToReproduce', 'expectedBehavior', 'actualBehavior'];
+    const missingFields = requiredFields.filter(field => !formData[field as keyof typeof formData]);
+    
+    if (missingFields.length > 0) {
+      console.log('Missing required fields:', missingFields);
+      setError(`Please fill in all required fields: ${missingFields.join(', ')}`);
+      return;
     }
 
     setLoading(true)
     setError(null)
 
+    console.log('Form submission started with data:', formData);
+    console.log('Screenshots:', screenshots);
+
     try {
-      await createBug(formData)
+      console.log('Calling createBug API...');
+      await createBug(formData, screenshots)
+      console.log('API call successful');
       alert("Bug report submitted successfully!")
       router.push("/bugs")
     } catch (err: any) {
+      console.error('Error submitting bug:', err);
       setError(err.message || "Failed to submit bug report")
     } finally {
       setLoading(false)
@@ -60,6 +85,7 @@ export default function NewBug() {
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
+    console.log('Files selected:', files);
     setScreenshots([...screenshots, ...files])
   }
 
@@ -108,6 +134,21 @@ export default function NewBug() {
                 </div>
               )}
 
+              {/* Debug Info */}
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <h4 className="font-semibold text-blue-800 mb-2">Debug Info:</h4>
+                <div className="text-sm text-blue-700">
+                  <p>Title: {formData.title || 'Not set'}</p>
+                  <p>Module: {formData.module || 'Not set'}</p>
+                  <p>Priority: {formData.priority}</p>
+                  <p>Description: {formData.description ? 'Set' : 'Not set'}</p>
+                  <p>Steps: {formData.stepsToReproduce ? 'Set' : 'Not set'}</p>
+                  <p>Expected: {formData.expectedBehavior ? 'Set' : 'Not set'}</p>
+                  <p>Actual: {formData.actualBehavior ? 'Set' : 'Not set'}</p>
+                  <p>Files: {screenshots.length}</p>
+                </div>
+              </div>
+
               {/* Basic Information */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
@@ -123,7 +164,10 @@ export default function NewBug() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="module">Module *</Label>
-                  <Select value={formData.module} onValueChange={(value) => setFormData({ ...formData, module: value })}>
+                  <Select value={formData.module} onValueChange={(value) => {
+                    console.log('Module selected:', value);
+                    setFormData({ ...formData, module: value });
+                  }}>
                     <SelectTrigger className="bg-white/50">
                       <SelectValue placeholder="Select module" />
                     </SelectTrigger>
@@ -224,11 +268,13 @@ export default function NewBug() {
                       className="hidden"
                       id="file-upload"
                     />
-                    <label htmlFor="file-upload" className="cursor-pointer">
-                      <Button variant="outline" type="button">
-                        Choose Files
-                      </Button>
-                    </label>
+                    <Button 
+                      variant="outline" 
+                      type="button"
+                      onClick={() => document.getElementById('file-upload')?.click()}
+                    >
+                      Choose Files
+                    </Button>
                   </div>
                 </div>
 
@@ -263,6 +309,24 @@ export default function NewBug() {
                   disabled={loading}
                 >
                   Cancel
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline"
+                  onClick={async () => {
+                    try {
+                      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/createBug`, {
+                        method: 'GET'
+                      });
+                      console.log('API test response:', response.status);
+                      alert(`API is reachable! Status: ${response.status}`);
+                    } catch (error) {
+                      console.error('API test failed:', error);
+                      alert('API test failed: ' + error);
+                    }
+                  }}
+                >
+                  Test API
                 </Button>
                 <Button type="submit" className="bg-red-600 hover:bg-red-700" disabled={loading}>
                   {loading ? "Submitting..." : "Submit Bug Report"}

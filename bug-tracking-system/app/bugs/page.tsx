@@ -31,7 +31,6 @@ export default function BugsList() {
   const [user, setUser] = useState<any>(null)
   const [filters, setFilters] = useState({
     search: "",
-    status: "all",
     priority: "all",
     module: "all",
   })
@@ -55,7 +54,10 @@ export default function BugsList() {
       const bugsData = await fetchBugs(filters)
       setBugs(bugsData)
     } catch (err: any) {
+      console.error('Error loading bugs:', err);
       setError(err.message)
+      // Set empty array to show "no bugs" state
+      setBugs([])
     } finally {
       setLoading(false)
     }
@@ -83,14 +85,14 @@ export default function BugsList() {
       case "Developer":
         return "Assigned Bugs"
       case "Admin":
-        return "All Bugs"
+        return "All Bugs (Admin View)"
       default:
         return "All Bugs"
     }
   }
 
   const canCreateBug = () => {
-    return user?.role === "Reporter" || user?.role === "Admin"
+    return user?.role === "Reporter"
   }
 
   if (loading) {
@@ -126,8 +128,15 @@ export default function BugsList() {
               <h1 className="text-2xl font-bold text-gray-900">{getRoleBasedTitle()}</h1>
             </div>
           </div>
-          <p className="text-gray-600">Track and manage bug reports efficiently</p>
+          <p className="text-gray-600">
+            {user?.role === 'Admin' 
+              ? 'View and manage all bug reports in the system' 
+              : 'Track and manage bug reports efficiently'
+            }
+          </p>
         </div>
+
+
 
         {/* Filters */}
         <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm mb-6">
@@ -140,7 +149,7 @@ export default function BugsList() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Search</label>
                 <div className="relative">
@@ -152,21 +161,6 @@ export default function BugsList() {
                     className="pl-10 bg-white/50"
                   />
                 </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Status</label>
-                <Select value={filters.status} onValueChange={(value) => setFilters({ ...filters, status: value })}>
-                  <SelectTrigger className="bg-white/50">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="Open">Open</SelectItem>
-                    <SelectItem value="In Progress">In Progress</SelectItem>
-                    <SelectItem value="Resolved">Resolved</SelectItem>
-                    <SelectItem value="Closed">Closed</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Priority</label>
@@ -256,8 +250,8 @@ export default function BugsList() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge className={statusColors[bug.status as keyof typeof statusColors]}>
-                          {bug.status}
+                        <Badge className={statusColors[bug.status as keyof typeof statusColors] || "bg-gray-100 text-gray-800"}>
+                          {bug.status || "Open"}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -267,8 +261,8 @@ export default function BugsList() {
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">
-                          {bug.assignedTo ? (
-                            <span className="text-gray-900">{bug.assignedTo}</span>
+                          {bug.assigned_to ? (
+                            <span className="text-gray-900">{bug.assigned_to}</span>
                           ) : (
                             <span className="text-gray-500">Unassigned</span>
                           )}
