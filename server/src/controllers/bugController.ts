@@ -127,3 +127,40 @@ export const updateBugAssignedTo = async (req: Request, res: Response, next: Nex
     return next(error);
   }
 };
+
+
+
+export const findBugsByDevId = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return next(new ApiError('Unauthorized', 401));
+    }
+
+    const userId = req.user.id;
+
+    const bugs = await Bug.findAll({
+      where: { assigned_to: userId }
+    });
+
+    if (!bugs || bugs.length === 0) {
+      return res.status(200).json({ message: 'No bugs found for this user', data: [] });
+    }
+
+    const protocol = req.protocol; 
+    const host = req.get('host'); 
+
+    const bugsWithFullScreenshotUrl = bugs.map(bug => {
+      const bugJson = bug.toJSON();
+      return {
+        ...bugJson,
+        screenshot_url: bugJson.screenshot
+          ? `${protocol}://${host}/uploads/${bugJson.screenshot}`
+          : null
+      };
+    });
+
+    return res.json({ success: true, data: bugsWithFullScreenshotUrl });
+  } catch (error) {
+    return next(error);
+  }
+};

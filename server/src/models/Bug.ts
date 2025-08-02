@@ -2,7 +2,9 @@ import { DataTypes, Model } from 'sequelize';
 import sequelize from '../config/sequelize';
 import User from './user';
 
-class Bug extends Model {}
+class Bug extends Model {
+  assigned_to: any;
+}
 
 Bug.init({
   id: {
