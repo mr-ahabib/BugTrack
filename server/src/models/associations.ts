@@ -1,6 +1,6 @@
 import Bug from './Bug';
 import User from './user';
-
+import Comment from './comment';
 const applyAssociations = () => {
   // A Bug is reported by a User
   Bug.belongsTo(User, {
@@ -27,6 +27,20 @@ const applyAssociations = () => {
     foreignKey: 'assigned_to',
     as: 'assignedBugs',
   });
+  
+Comment.belongsTo(Bug, {
+    foreignKey: 'bug_id',
+    as: 'bug',
+    onDelete: 'CASCADE',
+  });
+
+  Bug.hasMany(Comment, {
+    foreignKey: 'bug_id',
+    as: 'comments',
+  });
 };
+
+
+
 
 export default applyAssociations;
